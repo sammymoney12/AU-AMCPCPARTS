@@ -88,6 +88,11 @@
                          data-logo_alignment="left"
                          data-width="300">
                     </div>
+                    <div id="g_id_onload"
+                         data-client_id="509749908660-shunaj0ba7ievvval9njc2dgoh7laraq.apps.googleusercontent.com"
+                         data-auto_prompt="false"
+                         data-callback="handleCredentialResponse">
+                    </div>
                 </button>
 
                 <button type="button" class="social-btn facebook-material">
@@ -131,35 +136,47 @@
     </div>
 
     <script>
-        function handleGoogleCredential(response) {
-            console.log("Google ID Token:", response.credential);
+function handleCredentialResponse(response) {
+  if (!response.credential) {
+    console.error("No credential returned");
+    // Optionally show UI error: "Google sign-in failed"
+    return;
+  }
 
-            // Send token to your backend for verification (recommended)
-            fetch('/api/auth/google', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id_token: response.credential })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    // Show your nice Material success message
-                    document.getElementById('successMessage').style.display = 'block';
-                    // Optional: hide other elements if desired
-                    // document.querySelector('.login-form').style.display = 'none';
-                    // document.querySelector('.social-login').style.display = 'none';
-                    setTimeout(() => {
-                        window.location.href = '/dashboard'; // or wherever you want
-                    }, 1500);
-                } else {
-                    alert('Login failed: ' + (data.error || 'Unknown error'));
-                }
-            })
-            .catch(err => {
-                console.error('Fetch error:', err);
-                alert('Something went wrong during login. Please try again.');
-            });
-        }
+  const idToken = response.credential;
+
+  // Optional: decode for display/debug only
+  try {
+    const payload = JSON.parse(atob(idToken.split('.')[1]));
+    console.log('Google user:', payload);
+  } catch (e) {
+    console.error("Failed to decode JWT", e);
+  }
+
+  // Critical: send to YOUR backend
+  fetch('/api/google-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id_token: idToken })
+  })
+  .then(res => {
+    if (!res.ok) throw new Error('Backend error');
+    return res.json();
+  })
+  .then(data => {
+    if (data.success) {
+      localStorage.setItem('user', JSON.stringify(data.user));
+      window.location.href = '/'; 
+    } else {
+      console.error('Login failed:', data.error);
+      // Show message to user
+    }
+  })
+  .catch(err => {
+    console.error('Google login error:', err);
+    // Show UI error message
+  });
+}
     </script>
 </body>
 </html>
